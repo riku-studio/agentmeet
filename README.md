@@ -24,7 +24,7 @@ cd agentmeet
 
 ## 主持一次讨论
 
-在希望 Agent 阅读的项目目录中运行 `agentmeet`。也可以直接运行 `python /path/to/agentmeet.py`。两种方式都以启动时的当前目录作为只读项目背景，Agent 可以按需查阅文件。
+在希望 Agent 阅读的项目目录中运行 `agentmeet`。也可以直接运行 `python /path/to/agentmeet.py`。两种方式都以启动时的当前目录作为项目背景，默认只读，Agent 可以按需查阅文件。
 
 进入讨论室后，逐行输入：
 
@@ -41,16 +41,23 @@ cd agentmeet
 
 输入 `/exit` 退出。AgentMeet 的讨论记录只保留在本次进程的内存中。
 
-## 将讨论写成报告
+## 让一位 Agent 读写项目
 
-先输入对读者、篇幅或结构的要求，再点名一位 Agent 撰写。例如：
+在 `/gpt`、`/claude` 或 `/gemini` 后加 `-w`（或 `--write`），该 Agent 就能在本轮按指示创建或修改项目文件。指示可以先作为普通消息输入：
 
 ```text
-给产品负责人写一份一页报告，列出结论、尚未解决的问题和下一步。
-/report claude reports/方案评审.md
+把讨论整理成 reports/方案评审.md，列出已达成的结论和仍有分歧的问题。
+/claude -w
 ```
 
-使用 `/report <gpt|claude|gemini> [相对路径.md]`。省略路径时保存到项目根目录的 `report.md`。Agent 使用当前选定的模型和完整讨论记录生成正文，由 AgentMeet 创建目录并写入 UTF-8 Markdown 文件。已有同名文件时会提示另选文件名。保存后的正文也加入讨论记录，可继续点名其他 Agent 复核。
+也可以把任务写在参数后面，包括作为新会话的第一条消息：
+
+```text
+/gpt --write 更新 README.md 中的安装步骤
+/gemini -w 为刚才的讨论创建一份行动清单，保存为 下一步.md
+```
+
+行内指示会加入讨论记录。写权限仅对本次点名生效，下一次普通点名和 `/all` 都按只读模式运行。
 
 ## 选择模型
 
