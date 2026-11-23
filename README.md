@@ -41,6 +41,17 @@ cd agentmeet
 
 输入 `/exit` 退出。AgentMeet 的讨论记录只保留在本次进程的内存中。
 
+## 将讨论写成报告
+
+先输入对读者、篇幅或结构的要求，再点名一位 Agent 撰写。例如：
+
+```text
+给产品负责人写一份一页报告，列出结论、尚未解决的问题和下一步。
+/report claude reports/方案评审.md
+```
+
+使用 `/report <gpt|claude|gemini> [相对路径.md]`。省略路径时保存到项目根目录的 `report.md`。Agent 使用当前选定的模型和完整讨论记录生成正文，由 AgentMeet 创建目录并写入 UTF-8 Markdown 文件。已有同名文件时会提示另选文件名。保存后的正文也加入讨论记录，可继续点名其他 Agent 复核。
+
 ## 选择模型
 
 输入 `/model` 查看三位发言者的模型设置。使用 `/model <gpt|claude|gemini> <模型名>` 切换，模型名由对应 CLI 支持，设置从下一次点名起生效。例如：
