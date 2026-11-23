@@ -15,6 +15,7 @@ NAMES = {"codex": "GPT", "claude": "Claude", "agy": "Gemini"}
 COMMANDS = {name.lower(): agent for agent, name in NAMES.items()}
 COMMANDS.update({"codex": "codex", "code": "codex", "agy": "agy"})
 HELP = ("输入消息后按回车，再用 /gpt、/claude、/gemini 或 /all 点名。\n"
+        "/report <agent> [文件.md] 将讨论整理成报告。\n"
         "/model 查看模型；/model <agent> <模型名> 设置；用 default 恢复默认。/exit 退出。")
 
 
@@ -97,6 +98,59 @@ def turn(agent, snapshot, workspace, model):
         return agent, None, str(error)
 
 
+def write_report(parts, history, workspace, models):
+    agent = COMMANDS.get(parts[1].lower()) if len(parts) >= 2 else None
+    if agent is None:
+        print("用法：/report <gpt|claude|gemini> [相对路径.md]")
+        return
+    if not history:
+        print("请先输入讨论内容。")
+        return
+    relative = Path(parts[2] if len(parts) == 3 else "report.md")
+    if (relative.anchor or relative.suffix.lower() != ".md"
+            or any(p in {"..", ".git"} or ":" in p or Path(p).is_reserved()
+                   for p in map(str.lower, relative.parts))):
+        print("请指定项目目录内的相对 Markdown 路径，例如 reports/讨论总结.md。")
+        return
+    target = workspace / relative
+    try:
+        if not target.resolve().is_relative_to(workspace) or target.is_symlink():
+            print("报告路径必须位于项目目录内。")
+            return
+        if target.exists():
+            print(f"文件已存在，请换一个文件名：{relative}")
+            return
+        instruction = {"speaker": "用户", "text": (
+            "请根据以上讨论及我的要求撰写可独立阅读的 Markdown 报告。"
+            "区分已达成的结论、仍有分歧的问题以及建议。仅输出报告正文，程序负责保存。")}
+        print(f"等待 {NAMES[agent]} 撰写报告…", flush=True)
+        snapshot = json.dumps([*history, instruction], ensure_ascii=False)
+        _, reply, error = turn(agent, snapshot, workspace, models[agent])
+        if error is not None:
+            print(f"[{NAMES[agent]} 调用失败] {error}")
+            return
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(dir=target.parent, delete=False) as draft:
+            temp_path = Path(draft.name)
+        try:
+            temp_path.write_text(reply + "\n", encoding="utf-8")
+            if os.name == "nt":
+                os.rename(temp_path, target)  # Windows refuses to replace an existing file.
+            else:
+                os.link(temp_path, target)
+        finally:
+            temp_path.unlink(missing_ok=True)
+    except FileExistsError:
+        print(f"文件已存在，请换一个文件名：{relative}")
+        return
+    except (OSError, RuntimeError, ValueError) as error:
+        print(f"报告保存失败：{error}")
+        return
+    history.extend([{"speaker": "用户", "text": f"请将讨论整理为报告 {relative}。"},
+                    {"speaker": NAMES[agent], "text": reply}])
+    print(f"[{NAMES[agent]}] 已保存报告：{target}")
+
+
 def main():
     parser = argparse.ArgumentParser(prog="agentmeet", description="在当前项目目录启动只读讨论")
     for agent, name in NAMES.items():
@@ -124,6 +178,9 @@ def main():
             continue
         parts = line[1:].split(maxsplit=2)
         command = parts[0].lower() if parts else ""
+        if command == "report":
+            write_report(parts, history, workspace, models)
+            continue
         if command == "model":
             if len(parts) == 1:
                 for agent, name in NAMES.items():
